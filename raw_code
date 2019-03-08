@@ -1,0 +1,138 @@
+# https://blog.csdn.net/u014788374/article/details/80367285
+# https://acg.is/d/986
+# https://www.jijidown.com/?id=5b85075fb02de23de7faf226
+# https://www.jianshu.com/p/93e5bd5a2650
+# https://blog.csdn.net/chaowanghn/article/details/54889835
+# https://blog.csdn.net/u012942818/article/details/75144001  wordcloud安装教程
+
+# 步骤教程
+# https://zhuanlan.zhihu.com/p/26282101
+# https://www.jianshu.com/p/b0991cbc23a4
+
+# 最近做爬虫实验，写实验报告的时候发现b站的弹幕获取api貌似变了...但是原本的api也能用...
+# 原先的是 'https://comment.bilibili.com/' + cid + '.xml'
+# 现在的是 'https://api.bilibili.com/x/v1/dm/list.so?oid=' + cid
+ 
+ 
+ from urllib.request import urlopen
+import requests
+import webbrowser
+from bs4 import BeautifulSoup
+import json
+import pandas as pd
+import os
+import requests,re
+import numpy as np
+
+cid = '57023246'  # 视频 cid 编号
+html = str('https://api.bilibili.com/x/v1/dm/list.so?oid=')+cid
+response = requests.get(html)
+contents = response.content
+html_doc = contents.decode('utf-8')
+# print(html_doc)
+soup = BeautifulSoup(html_doc, 'lxml')
+# print(soup.prettify())
+
+attrb = {}
+danmu = {}
+contents = soup.find_all(name = 'd')
+for i in range(len(contents)):
+    attrb[i]=contents[i]['p'].split(',')
+    del contents[i]['p']
+    danmu[i]=contents[i].string
+    
+# print(attrb)
+newdanmu=[]
+newattrb=[]
+for index, value in attrb.items():
+    newattrb.append(attrb[index])
+    newdanmu.append(danmu[index])
+
+    
+columns = len(newattrb[0])
+newattrb = np.reshape(newattrb, (index+1,columns))
+newdanmu = np.reshape(newdanmu, (index+1,1))
+dfattrb = pd.DataFrame(data = newattrb,columns = ['Appear Time(sec)','Type of BarrageInt','Size','Color','Time Stamp','Barrage Pool','Sender ID','rowID for Historical Barrage'])
+dfdanmu = pd.DataFrame(data = newdanmu,columns = ['Content'])
+
+newcolumn = []
+for i in dfattrb['Type of BarrageInt']:
+    if (i == '1' or i == '2' or i == '3'):
+        newcolumn.append('滚动弹幕')
+    elif (i=='4'):
+        newcolumn.append('底端弹幕')
+    elif(i=='5'):
+        newcolumn.append('顶端弹幕')
+    elif(i=='6'):
+        newcolumn.append('逆向弹幕')
+    elif(i=='7'):
+        newcolumn.append('精准定位')
+    elif(i=='8'):
+        newcolumn.append('高级弹幕')
+# newcolumn
+dfattrb.insert(loc=2,column = 'Type of Barrage',value=newcolumn)
+newcolumn = []
+
+
+df = dfattrb.join(dfdanmu)
+df.iloc[:,0]=df.iloc[:,0].astype(float)
+df
+
+
+from wordcloud import WordCloud as wc
+
+# convert all barrage into a whole String variable
+allbarrage = ''
+for i in df['Content']:
+    allbarrage+=str(i)
+
+wordcloud = wc(font_path = r'C:\Windows\Fonts\simhei.ttf', background_color="white",width=1000, height=860, margin=2).generate(allbarrage)
+import matplotlib.pyplot as plt
+plt.imshow(wordcloud)
+plt.axis('off')
+plt.show()
+import os
+print(os.getcwd())
+wordcloud.to_file('test.png')
+df.to_csv('barrage.csv',encoding='utf_8_sig')
+
+
+from os import path
+from PIL import Image
+from wordcloud import WordCloud, STOPWORDS,ImageColorGenerator
+
+alice_coloring = np.array(Image.open("alice.png")) # convert alice.png to a 3-D array
+
+# 设置停用词
+stopwords = set(STOPWORDS)
+stopwords.add("said")
+stopwords
+
+# 通过 mask 参数来设置词云形状
+newwc = WordCloud(font_path = r'C:\Windows\Fonts\simhei.ttf',
+                  background_color="white",max_words=2000,mask=alice_coloring,
+                 stopwords=STOPWORDS,max_font_size=40,random_state=42)
+newwc.generate(allbarrage)
+
+# 从 alice.png 创建色彩
+image_colors = ImageColorGenerator(alice_coloring)
+
+# 显示图片
+plt.imshow(newwc,interpolation='bilinear')
+plt.axis('off')
+plt.figure()
+newwc.to_file('test1.png')
+
+# 自定义词云颜色的 另一种方法
+plt.imshow(newwc.recolor(color_func=image_colors),interpolation="bilinear")
+plt.axis('off')
+plt.figure()
+newwc.to_file('test2.png')
+
+
+import numpy as np
+plt.figure()
+plt.hist(df.iloc[:,0])
+plt.xlabel('Time axis (second)')
+plt.ylabel('Count')
+plt.title('Histogram of Barrage')
